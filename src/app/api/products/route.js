@@ -14,9 +14,16 @@ export async function GET() {
     .eq("is_active", true)
     .order("id");
 
-  if (error) {
-    return NextResponse.json({ error: "Unable to load products." }, { status: 500 });
-  }
+ if (error) {
+  return NextResponse.json(
+    {
+      error: "Unable to load products.",
+      details: error.message,
+      code: error.code,
+    },
+    { status: 500 }
+  );
+}
 
   const products = data.map((product) => ({
     ...product,
