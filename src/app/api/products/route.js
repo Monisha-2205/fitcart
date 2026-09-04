@@ -16,11 +16,7 @@ export async function GET() {
 
  if (error) {
   return NextResponse.json(
-    {
-      error: "Unable to load products.",
-      details: error.message,
-      code: error.code,
-    },
+    { error: "Unable to load products." },
     { status: 500 }
   );
 }
