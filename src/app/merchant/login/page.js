@@ -1,0 +1,3 @@
+import AuthForm from "../../../components/AuthForm";
+
+export default function MerchantLoginPage() { return <main className="container-fc flex min-h-screen items-center justify-center py-12"><section className="w-full max-w-md rounded-3xl border border-line bg-white p-6 shadow-sm sm:p-8"><p className="text-xs font-bold uppercase tracking-widest text-mango">FitCart merchant</p><h1 className="mt-2 text-3xl font-extrabold text-forest">Merchant sign in</h1><p className="mt-3 text-sm text-slate-600">Use an account assigned the merchant role in Supabase.</p><div className="mt-7"><AuthForm merchantOnly /></div></section></main>; }

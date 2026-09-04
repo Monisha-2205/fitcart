@@ -1,12 +1,14 @@
 "use client";
+/* eslint-disable react/no-unescaped-entities */
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import Navbar from "../../components/Navbar";
 import { useCart } from "../../context/CartContext";
 import { useWishlist } from "../../context/WishlistContext";
-import products from "../../data/products";
+import fallbackProducts from "../../data/products";
+import { isSupabaseConfigured } from "../../lib/supabase/client";
 
 function ShopContent() {
   const { addToCart } = useCart();
@@ -20,6 +22,28 @@ function ShopContent() {
 
   const [sortBy, setSortBy] = useState("featured");
   const [addedProduct, setAddedProduct] = useState(null);
+  const [productList, setProductList] = useState(
+    isSupabaseConfigured ? [] : fallbackProducts
+  );
+  const [loadError, setLoadError] = useState("");
+
+  useEffect(() => {
+    fetch("/api/products")
+      .then((response) =>
+        response.json().then((data) => ({ response, data }))
+      )
+      .then(({ response, data }) => {
+        if (!response.ok) {
+          setLoadError(data.error || "Unable to load products.");
+          return;
+        }
+
+        setProductList(data.products);
+      })
+      .catch(() =>
+        setLoadError("Unable to load products. Please try again.")
+      );
+  }, []);
 
   const categories = [
     "All Products",
@@ -29,7 +53,7 @@ function ShopContent() {
     "Healthy Snacks",
   ];
 
-  const filteredProducts = products.filter((product) => {
+  const filteredProducts = productList.filter((product) => {
     const matchesCategory =
       categoryQuery === "All Products" ||
       product.category === categoryQuery;
@@ -71,7 +95,15 @@ function ShopContent() {
   };
 
   const handleAddToCart = (product) => {
-    addToCart(product);
+    if (Number(product.stock) <= 0) {
+      return;
+    }
+
+    const added = addToCart(product);
+
+    if (!added) {
+      return;
+    }
 
     setAddedProduct(product.id);
 
@@ -85,7 +117,6 @@ function ShopContent() {
       <Navbar />
 
       <main className="container-fc py-16">
-
         {/* Header */}
         <div className="mb-10">
           <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-mango">
@@ -121,9 +152,14 @@ function ShopContent() {
           )}
         </div>
 
+        {loadError && (
+          <p className="mb-6 rounded-xl bg-orange-100 px-4 py-3 text-sm text-forest">
+            {loadError}
+          </p>
+        )}
+
         {/* Category + Sort */}
         <div className="mb-8 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-
           <div className="flex flex-wrap gap-3">
             {categories.map((category) => (
               <button
@@ -183,13 +219,13 @@ function ShopContent() {
           {sortedProducts.map((product) => {
             const wishlisted = isInWishlist(product.id);
             const isAdded = addedProduct === product.id;
+            const isOutOfStock = Number(product.stock) <= 0;
 
             return (
               <div
                 key={product.id}
                 className="group overflow-hidden rounded-2xl border border-line bg-white transition duration-200 hover:-translate-y-1 hover:shadow-lg"
               >
-
                 {/* Image */}
                 <div className="relative m-3 overflow-hidden rounded-xl bg-slate-100">
                   <Link
@@ -224,7 +260,6 @@ function ShopContent() {
 
                 {/* Details */}
                 <div className="px-4 pb-5">
-
                   <p className="text-xs text-slate-500">
                     {product.category}
                   </p>
@@ -253,17 +288,21 @@ function ShopContent() {
                   <button
                     type="button"
                     onClick={() => handleAddToCart(product)}
+                    disabled={isOutOfStock}
                     className={`mt-4 w-full rounded-full px-4 py-3 text-sm font-semibold text-white transition ${
-                      isAdded
-                        ? "bg-mango"
-                        : "bg-forest hover:opacity-90"
+                      isOutOfStock
+                        ? "cursor-not-allowed bg-slate-300"
+                        : isAdded
+                          ? "bg-mango"
+                          : "bg-forest hover:opacity-90"
                     }`}
                   >
-                    {isAdded
-                      ? "✓ Added to Cart"
-                      : "Add to Cart"}
+                    {isOutOfStock
+                      ? "Out of Stock"
+                      : isAdded
+                        ? "✓ Added to Cart"
+                        : "Add to Cart"}
                   </button>
-
                 </div>
               </div>
             );
@@ -291,7 +330,6 @@ function ShopContent() {
             </Link>
           </div>
         )}
-
       </main>
     </>
   );
@@ -303,6 +341,7 @@ export default function ShopPage() {
       fallback={
         <div className="min-h-screen bg-cream">
           <Navbar />
+
           <main className="container-fc py-16">
             <p className="text-center text-slate-500">
               Loading products...

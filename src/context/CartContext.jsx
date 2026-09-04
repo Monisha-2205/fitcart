@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable react-hooks/set-state-in-effect */
 
 import {
   createContext,
@@ -13,6 +14,7 @@ const CartContext = createContext();
 export function CartProvider({ children }) {
   const [cart, setCart] = useState([]);
   const [cartLoaded, setCartLoaded] = useState(false);
+  const [stockMessage, setStockMessage] = useState("");
 
   // Load cart from localStorage
   useEffect(() => {
@@ -42,21 +44,42 @@ export function CartProvider({ children }) {
 
   // Add product
   const addToCart = (product) => {
+    const stock = Number(product.stock);
+
+    if (stock <= 0) {
+      setStockMessage(`${product.name} is out of stock.`);
+      return false;
+    }
+
+    let added = false;
+
     setCart((currentCart) => {
       const existingProduct = currentCart.find(
         (item) => item.id === product.id
       );
 
       if (existingProduct) {
+        if (existingProduct.quantity >= stock) {
+          setStockMessage(
+            `Only ${stock} ${product.name} available in stock.`
+          );
+          return currentCart;
+        }
+
+        added = true;
+
         return currentCart.map((item) =>
           item.id === product.id
             ? {
                 ...item,
+                ...product,
                 quantity: item.quantity + 1,
               }
             : item
         );
       }
+
+      added = true;
 
       return [
         ...currentCart,
@@ -66,6 +89,12 @@ export function CartProvider({ children }) {
         },
       ];
     });
+
+    if (added) {
+      setStockMessage("");
+    }
+
+    return added;
   };
 
   // Remove product
@@ -73,6 +102,8 @@ export function CartProvider({ children }) {
     setCart((currentCart) =>
       currentCart.filter((item) => item.id !== productId)
     );
+
+    setStockMessage("");
   };
 
   // Update quantity
@@ -83,20 +114,33 @@ export function CartProvider({ children }) {
     }
 
     setCart((currentCart) =>
-      currentCart.map((item) =>
-        item.id === productId
-          ? {
-              ...item,
-              quantity,
-            }
-          : item
-      )
+      currentCart.map((item) => {
+        if (item.id !== productId) {
+          return item;
+        }
+
+        const stock = Number(item.stock);
+
+        if (quantity > stock) {
+          setStockMessage(
+            `Only ${stock} ${item.name} available in stock.`
+          );
+        } else {
+          setStockMessage("");
+        }
+
+        return {
+          ...item,
+          quantity: Math.min(quantity, stock),
+        };
+      })
     );
   };
 
   // Clear cart
   const clearCart = useCallback(() => {
     setCart([]);
+    setStockMessage("");
     localStorage.removeItem("fitcart-cart");
   }, []);
 
@@ -122,6 +166,7 @@ export function CartProvider({ children }) {
         clearCart,
         cartCount,
         cartTotal,
+        stockMessage,
       }}
     >
       {children}

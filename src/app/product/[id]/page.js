@@ -1,11 +1,13 @@
 "use client";
+/* eslint-disable react/no-unescaped-entities */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import Navbar from "../../../components/Navbar";
 import Footer from "../../../components/Footer";
-import products from "../../../data/products";
+import fallbackProducts from "../../../data/products";
+import { isSupabaseConfigured } from "../../../lib/supabase/client";
 import { useCart } from "../../../context/CartContext";
 import { useWishlist } from "../../../context/WishlistContext";
 
@@ -15,14 +17,35 @@ export default function ProductPage() {
   const { addToCart } = useCart();
   const { toggleWishlist, isInWishlist } = useWishlist();
 
-  const product = products.find(
+  const [productList, setProductList] = useState(
+    isSupabaseConfigured ? [] : fallbackProducts
+  );
+  const [loaded, setLoaded] = useState(!isSupabaseConfigured);
+
+  useEffect(() => {
+    fetch("/api/products")
+      .then((response) =>
+        response.ok ? response.json() : null
+      )
+      .then((data) => {
+        if (data?.products) {
+          setProductList(data.products);
+        }
+
+        setLoaded(true);
+      })
+      .catch(() => setLoaded(true));
+  }, []);
+
+  const product = productList.find(
     (item) => item.id === Number(params.id)
   );
 
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
+  const [stockMessage, setStockMessage] = useState("");
 
-  if (!product) {
+  if (!product && loaded) {
     return (
       <>
         <Navbar />
@@ -53,7 +76,24 @@ export default function ProductPage() {
     );
   }
 
+  if (!product) {
+    return (
+      <>
+        <Navbar />
+
+        <main className="container-fc flex min-h-[65vh] items-center justify-center">
+          <p className="text-forest">Loading product…</p>
+        </main>
+
+        <Footer />
+      </>
+    );
+  }
+
   const wishlisted = isInWishlist(product.id);
+
+  const stock = Number(product.stock);
+  const isOutOfStock = stock <= 0;
 
   const savings = Math.max(
     0,
@@ -69,11 +109,47 @@ export default function ProductPage() {
         )
       : 0;
 
-  const handleAddToCart = () => {
-    for (let i = 0; i < quantity; i++) {
-      addToCart(product);
+  const handleQuantityIncrease = () => {
+    if (isOutOfStock) {
+      return;
     }
 
+    if (quantity >= stock) {
+      setStockMessage(
+        `Only ${stock} ${product.name} available in stock.`
+      );
+      return;
+    }
+
+    setQuantity((current) => current + 1);
+    setStockMessage("");
+  };
+
+  const handleAddToCart = () => {
+    if (isOutOfStock) {
+      setStockMessage(`${product.name} is out of stock.`);
+      return;
+    }
+
+    let successfullyAdded = true;
+
+    for (let i = 0; i < quantity; i++) {
+      const addedToCart = addToCart(product);
+
+      if (!addedToCart) {
+        successfullyAdded = false;
+        break;
+      }
+    }
+
+    if (!successfullyAdded) {
+      setStockMessage(
+        `Only ${stock} ${product.name} available in stock.`
+      );
+      return;
+    }
+
+    setStockMessage("");
     setAdded(true);
 
     setTimeout(() => {
@@ -81,7 +157,7 @@ export default function ProductPage() {
     }, 2000);
   };
 
-  const relatedProducts = products
+  const relatedProducts = productList
     .filter(
       (item) =>
         item.category === product.category &&
@@ -94,7 +170,6 @@ export default function ProductPage() {
       <Navbar />
 
       <main className="container-fc py-8 md:py-12">
-
         {/* Breadcrumb */}
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <Link
@@ -122,11 +197,9 @@ export default function ProductPage() {
 
         {/* Product */}
         <div className="mt-8 grid gap-10 lg:grid-cols-2 lg:gap-16">
-
           {/* Product Image */}
           <div>
             <div className="relative overflow-hidden rounded-3xl border border-line bg-white shadow-sm">
-
               <img
                 src={product.image}
                 alt={product.name}
@@ -161,7 +234,6 @@ export default function ProductPage() {
 
             {/* Trust Cards */}
             <div className="mt-5 grid grid-cols-2 gap-4">
-
               <div className="rounded-2xl border border-line bg-white p-5 text-center shadow-sm">
                 <div className="text-2xl">🚚</div>
 
@@ -185,13 +257,11 @@ export default function ProductPage() {
                   Carefully selected products
                 </p>
               </div>
-
             </div>
           </div>
 
           {/* Product Information */}
           <div className="flex flex-col justify-center">
-
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-mango">
               {product.category}
             </p>
@@ -202,7 +272,6 @@ export default function ProductPage() {
 
             {/* Rating */}
             <div className="mt-5 flex flex-wrap items-center gap-3">
-
               <div className="flex gap-1 text-mango">
                 <span>★</span>
                 <span>★</span>
@@ -218,14 +287,11 @@ export default function ProductPage() {
               <span className="text-sm text-slate-500">
                 124 verified reviews
               </span>
-
             </div>
 
             {/* Price */}
             <div className="mt-7 rounded-2xl bg-sage/50 p-5">
-
               <div className="flex flex-wrap items-center gap-3">
-
                 <span className="text-3xl font-extrabold text-forest">
                   ₹{product.price}
                 </span>
@@ -241,7 +307,6 @@ export default function ProductPage() {
                     SAVE {discountPercentage}%
                   </span>
                 )}
-
               </div>
 
               {savings > 0 && (
@@ -249,12 +314,10 @@ export default function ProductPage() {
                   You save ₹{savings} on this product
                 </p>
               )}
-
             </div>
 
             {/* Description */}
             <div className="mt-7">
-
               <h2 className="text-lg font-bold text-forest">
                 About this product
               </h2>
@@ -264,18 +327,15 @@ export default function ProductPage() {
                 Carefully selected for people who want wholesome,
                 delicious and convenient options for their lifestyle.
               </p>
-
             </div>
 
             {/* Highlights */}
             <div className="mt-7 border-t border-line pt-7">
-
               <h2 className="text-lg font-bold text-forest">
                 Why you'll love it
               </h2>
 
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
-
                 <div className="flex items-center gap-3 text-sm text-slate-600">
                   <span className="flex h-6 w-6 items-center justify-center rounded-full bg-sage font-bold text-forest">
                     ✓
@@ -303,62 +363,84 @@ export default function ProductPage() {
                   </span>
                   Convenient choice
                 </div>
-
               </div>
+            </div>
+
+            {/* Stock */}
+            <div className="mt-7">
+              {isOutOfStock ? (
+                <p className="font-semibold text-red-600">
+                  Out of Stock
+                </p>
+              ) : (
+                <p className="text-sm font-medium text-slate-500">
+                  {stock} available in stock
+                </p>
+              )}
             </div>
 
             {/* Quantity */}
-            <div className="mt-7 border-t border-line pt-7">
+            {!isOutOfStock && (
+              <div className="mt-5 border-t border-line pt-7">
+                <p className="text-sm font-bold text-forest">
+                  Quantity
+                </p>
 
-              <p className="text-sm font-bold text-forest">
-                Quantity
-              </p>
+                <div className="mt-3 flex w-fit items-center overflow-hidden rounded-full border border-line bg-white">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setQuantity((current) =>
+                        Math.max(1, current - 1)
+                      )
+                    }
+                    className="flex h-12 w-12 items-center justify-center text-xl font-semibold text-forest transition hover:bg-sage"
+                  >
+                    −
+                  </button>
 
-              <div className="mt-3 flex w-fit items-center overflow-hidden rounded-full border border-line bg-white">
+                  <span className="flex h-12 min-w-14 items-center justify-center border-x border-line px-4 font-bold text-forest">
+                    {quantity}
+                  </span>
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    setQuantity((current) =>
-                      Math.max(1, current - 1)
-                    )
-                  }
-                  className="flex h-12 w-12 items-center justify-center text-xl font-semibold text-forest transition hover:bg-sage"
-                >
-                  −
-                </button>
-
-                <span className="flex h-12 min-w-14 items-center justify-center border-x border-line px-4 font-bold text-forest">
-                  {quantity}
-                </span>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setQuantity((current) => current + 1)
-                  }
-                  className="flex h-12 w-12 items-center justify-center text-xl font-semibold text-forest transition hover:bg-sage"
-                >
-                  +
-                </button>
-
+                  <button
+                    type="button"
+                    onClick={handleQuantityIncrease}
+                    className="flex h-12 w-12 items-center justify-center text-xl font-semibold text-forest transition hover:bg-sage"
+                  >
+                    +
+                  </button>
+                </div>
               </div>
+            )}
 
-            </div>
+            {/* Stock Message */}
+            {stockMessage && (
+              <div className="mt-4 rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3">
+                <p className="text-sm font-semibold text-orange-700">
+                  ⚠️ {stockMessage}
+                </p>
+              </div>
+            )}
 
             {/* Add To Cart */}
             <button
               type="button"
               onClick={handleAddToCart}
-              className={`mt-7 w-full rounded-full px-6 py-4 text-base font-bold text-white shadow-sm transition hover:-translate-y-0.5 ${
-                added
-                  ? "bg-sage-deep"
-                  : "bg-forest hover:bg-forest-dark"
+              disabled={isOutOfStock}
+              className={`mt-7 w-full rounded-full px-6 py-4 text-base font-bold text-white shadow-sm transition ${
+                isOutOfStock
+                  ? "cursor-not-allowed bg-slate-300"
+                  : added
+                    ? "bg-sage-deep"
+                    : "bg-forest hover:bg-forest-dark"
               }`}
             >
-              {added
-                ? "✓ Added to Cart!"
-                : `Add ${quantity} to Cart →`}
+              {isOutOfStock
+                ? "Out of Stock"
+                : added
+                  ? "✓ Added to Cart!"
+                  : `Add ${quantity} to Cart →`}
             </button>
 
             {/* View Cart */}
@@ -373,7 +455,6 @@ export default function ProductPage() {
 
             {/* Delivery */}
             <div className="mt-5 rounded-2xl border border-line bg-white p-5">
-
               <div className="flex gap-3">
                 <span className="text-xl">🚚</span>
 
@@ -388,21 +469,18 @@ export default function ProductPage() {
                   </p>
                 </div>
               </div>
-
             </div>
 
             {/* Payment */}
             <div className="mt-3 rounded-2xl bg-cream p-4 text-center text-sm text-slate-600">
               💳 Card / Online Payment &nbsp; • &nbsp; 💵 Cash on Delivery
             </div>
-
           </div>
         </div>
 
         {/* Related Products */}
         {relatedProducts.length > 0 && (
           <section className="mt-20 border-t border-line pt-14">
-
             <div className="mb-8">
               <p className="text-xs font-bold uppercase tracking-widest text-mango">
                 You may also like
@@ -414,14 +492,12 @@ export default function ProductPage() {
             </div>
 
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-
               {relatedProducts.map((item) => (
                 <Link
                   key={item.id}
                   href={`/product/${item.id}`}
                   className="group overflow-hidden rounded-2xl border border-line bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
                 >
-
                   <div className="overflow-hidden bg-slate-100">
                     <img
                       src={item.image}
@@ -431,7 +507,6 @@ export default function ProductPage() {
                   </div>
 
                   <div className="p-5">
-
                     <p className="text-xs text-slate-500">
                       {item.category}
                     </p>
@@ -451,16 +526,12 @@ export default function ProductPage() {
                         </span>
                       )}
                     </div>
-
                   </div>
-
                 </Link>
               ))}
-
             </div>
           </section>
         )}
-
       </main>
 
       <Footer />

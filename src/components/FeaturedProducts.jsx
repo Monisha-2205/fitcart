@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+
 import { useCart } from "../context/CartContext";
 import { useWishlist } from "../context/WishlistContext";
 import products from "../data/products";
@@ -14,170 +15,153 @@ export default function FeaturedProducts() {
 
   const featuredProducts = products.slice(0, 4);
 
-  const handleAddToCart = (product) => {
-    addToCart(product);
+  const handleAdd = (product) => {
+    const added = addToCart(product);
+
+    if (!added) return;
 
     setAddedProduct(product.id);
 
     setTimeout(() => {
       setAddedProduct(null);
-    }, 1500);
+    }, 1400);
   };
 
   return (
-    <section
-      id="shop"
-      className="container-fc py-16 md:py-20"
-    >
-      {/* Header */}
-      <div className="mb-10 flex items-end justify-between gap-6">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-mango">
-            Our picks
-          </p>
+    <section id="shop" className="bg-[#ECEAE2] py-24 sm:py-28">
+      <div className="container-fc">
 
-          <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-forest md:text-4xl">
-            Customer favourites
-          </h2>
+        <div className="mb-12 flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
+          <div>
+            <div className="mb-4 flex items-center gap-3">
+              <span className="h-px w-9 bg-[#F47B32]" />
 
-          <p className="mt-3 max-w-2xl text-slate-600">
-            Everyday essentials our customers keep coming back for.
-          </p>
+              <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#F47B32]">
+                Featured selection
+              </span>
+            </div>
+
+            <h2 className="font-display text-4xl font-bold leading-[0.95] tracking-[-0.05em] text-[#174C3D] sm:text-5xl lg:text-6xl">
+              Essentials for
+              <br />
+              everyday living.
+            </h2>
+          </div>
+
+          <Link
+            href="/shop"
+            className="group flex w-fit items-center gap-3 border-b border-[#174C3D] pb-2 text-sm font-bold text-[#174C3D]"
+          >
+            View all products
+            <span className="transition-transform group-hover:translate-x-1">
+              ↗
+            </span>
+          </Link>
         </div>
 
-        <Link
-          href="/shop"
-          className="hidden shrink-0 rounded-full border border-line bg-white px-5 py-3 text-sm font-bold text-forest transition hover:border-forest hover:bg-sage sm:block"
-        >
-          View All →
-        </Link>
-      </div>
+        <div className="grid grid-cols-1 gap-x-5 gap-y-12 sm:grid-cols-2 lg:grid-cols-4">
+          {featuredProducts.map((product, index) => {
+            const wishlisted = isInWishlist(product.id);
 
-      {/* Product Grid */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {featuredProducts.map((product) => {
-          const wishlisted = isInWishlist(product.id);
-          const isAdded = addedProduct === product.id;
+            const discount =
+              product.oldPrice > product.price
+                ? Math.round(
+                    ((product.oldPrice - product.price) /
+                      product.oldPrice) *
+                      100
+                  )
+                : 0;
 
-          const discount =
-            product.oldPrice > product.price
-              ? Math.round(
-                  ((product.oldPrice - product.price) /
-                    product.oldPrice) *
-                    100
-                )
-              : 0;
+            return (
+              <article key={product.id} className="group">
 
-          return (
-            <div
-              key={product.id}
-              className="group overflow-hidden rounded-3xl border border-line bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl"
-            >
-              {/* Product Image */}
-              <div className="relative m-3 overflow-hidden rounded-2xl bg-slate-100">
-                <Link
-                  href={`/product/${product.id}`}
-                  className="block"
-                >
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="h-60 w-full object-cover transition duration-500 group-hover:scale-105"
-                  />
-                </Link>
+                <div className="relative overflow-hidden bg-white">
+                  <Link
+                    href={`/product/${product.id}`}
+                    className="block"
+                  >
+                    <div className="aspect-[0.9/1] overflow-hidden">
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
+                      />
+                    </div>
+                  </Link>
 
-                {/* Sale Badge */}
-                {discount > 0 && (
-                  <span className="absolute left-3 top-3 rounded-full bg-mango px-3 py-1.5 text-[11px] font-extrabold tracking-wide text-white shadow-sm">
-                    {discount}% OFF
-                  </span>
-                )}
-
-                {/* Wishlist */}
-                <button
-                  type="button"
-                  onClick={() => toggleWishlist(product)}
-                  aria-label={
-                    wishlisted
-                      ? `Remove ${product.name} from wishlist`
-                      : `Add ${product.name} to wishlist`
-                  }
-                  className={`absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full bg-white text-xl shadow-md transition hover:scale-105 ${
-                    wishlisted
-                      ? "text-mango"
-                      : "text-slate-700 hover:text-mango"
-                  }`}
-                >
-                  {wishlisted ? "♥" : "♡"}
-                </button>
-              </div>
-
-              {/* Product Information */}
-              <div className="px-5 pb-5">
-
-                <p className="text-xs font-medium text-slate-400">
-                  {product.category}
-                </p>
-
-                <Link
-                  href={`/product/${product.id}`}
-                  className="mt-1 block text-base font-bold leading-6 text-forest hover:underline"
-                >
-                  {product.name}
-                </Link>
-
-                {/* Rating */}
-                <div className="mt-3 flex items-center gap-2">
-                  <span className="tracking-wide text-mango">
-                    ★★★★★
-                  </span>
-
-                  <span className="text-xs font-medium text-slate-500">
-                    4.8
-                  </span>
-                </div>
-
-                {/* Price */}
-                <div className="mt-3 flex items-center gap-2">
-                  <span className="text-lg font-extrabold text-forest">
-                    ₹{product.price}
-                  </span>
-
-                  {product.oldPrice > product.price && (
-                    <span className="text-sm text-slate-400 line-through">
-                      ₹{product.oldPrice}
+                  <div className="absolute left-4 top-4 flex items-center gap-2">
+                    <span className="bg-white/90 px-2 py-1 text-[9px] font-bold tracking-[0.16em] text-[#174C3D]">
+                      {String(index + 1).padStart(2, "0")}
                     </span>
-                  )}
+
+                    {discount > 0 && (
+                      <span className="bg-[#F47B32] px-2 py-1 text-[9px] font-bold tracking-[0.12em] text-white">
+                        {discount}% OFF
+                      </span>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => toggleWishlist(product)}
+                    aria-label={
+                      wishlisted
+                        ? `Remove ${product.name} from wishlist`
+                        : `Add ${product.name} to wishlist`
+                    }
+                    className={`absolute bottom-4 right-4 flex h-10 w-10 items-center justify-center bg-white text-lg shadow-sm transition-all ${
+                      wishlisted
+                        ? "text-[#F47B32]"
+                        : "text-[#174C3D] hover:bg-[#174C3D] hover:text-white"
+                    }`}
+                  >
+                    {wishlisted ? "♥" : "♡"}
+                  </button>
                 </div>
 
-                {/* Add To Cart */}
-                <button
-                  type="button"
-                  onClick={() => handleAddToCart(product)}
-                  className={`mt-4 w-full rounded-full px-4 py-3 text-sm font-bold text-white transition hover:-translate-y-0.5 ${
-                    isAdded
-                      ? "bg-mango"
-                      : "bg-forest hover:bg-forest-dark"
-                  }`}
-                >
-                  {isAdded
-                    ? "✓ Added to Cart"
-                    : "Add to Cart →"}
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+                <div className="pt-5">
+                  <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-[#7B8882]">
+                    {product.category}
+                  </span>
 
-      {/* Mobile CTA */}
-      <div className="mt-8 text-center sm:hidden">
-        <Link
-          href="/shop"
-          className="inline-flex rounded-full border border-line bg-white px-6 py-3 text-sm font-bold text-forest transition hover:border-forest hover:bg-sage"
-        >
-          View All Products →
-        </Link>
+                  <Link href={`/product/${product.id}`}>
+                    <h3 className="mt-2 font-display text-[19px] font-bold tracking-[-0.025em] text-[#174C3D] transition-colors hover:text-[#F47B32]">
+                      {product.name}
+                    </h3>
+                  </Link>
+
+                  <div className="mt-5 flex items-end justify-between gap-3">
+                    <div>
+                      <strong className="font-display text-lg font-bold text-[#174C3D]">
+                        ₹{product.price}
+                      </strong>
+
+                      {product.oldPrice > product.price && (
+                        <del className="ml-2 text-xs text-[#8B938F]">
+                          ₹{product.oldPrice}
+                        </del>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleAdd(product)}
+                      className={`border-b pb-1 text-[10px] font-bold uppercase tracking-[0.12em] transition-colors ${
+                        addedProduct === product.id
+                          ? "border-[#F47B32] text-[#F47B32]"
+                          : "border-[#174C3D] text-[#174C3D] hover:border-[#F47B32] hover:text-[#F47B32]"
+                      }`}
+                    >
+                      {addedProduct === product.id
+                        ? "Added ✓"
+                        : "Add to cart +"}
+                    </button>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
       </div>
     </section>
   );

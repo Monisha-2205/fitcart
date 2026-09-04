@@ -1,5 +1,7 @@
 "use client";
+/* eslint-disable react/no-unescaped-entities */
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Navbar from "../../components/Navbar";
 import Footer from "../../components/Footer";
@@ -11,7 +13,67 @@ export default function CartPage() {
     removeFromCart,
     updateQuantity,
     cartTotal,
+    stockMessage,
   } = useCart();
+
+  const [stockChecked, setStockChecked] = useState(false);
+  const [stockErrors, setStockErrors] = useState([]);
+
+  useEffect(() => {
+    async function checkLiveStock() {
+      if (cart.length === 0) {
+        setStockChecked(true);
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/products", {
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          setStockChecked(true);
+          return;
+        }
+
+        const result = await response.json();
+        const liveProducts = result.products || [];
+
+        const errors = [];
+
+        cart.forEach((item) => {
+          const liveProduct = liveProducts.find(
+            (product) => Number(product.id) === Number(item.id)
+          );
+
+          if (!liveProduct) {
+            errors.push(`${item.name} is no longer available.`);
+            return;
+          }
+
+          const liveStock = Number(liveProduct.stock);
+
+          if (liveStock <= 0) {
+            errors.push(`${item.name} is currently out of stock.`);
+          } else if (item.quantity > liveStock) {
+            errors.push(
+              `Only ${liveStock} ${item.name} available. Please reduce the quantity.`
+            );
+          }
+        });
+
+        setStockErrors(errors);
+      } catch (error) {
+        console.error("Could not check live stock:", error);
+      }
+
+      setStockChecked(true);
+    }
+
+    checkLiveStock();
+  }, [cart]);
+
+  const hasStockProblem = stockErrors.length > 0;
 
   const shipping = cartTotal >= 999 ? 0 : 49;
   const grandTotal = cartTotal + shipping;
@@ -74,6 +136,39 @@ export default function CartPage() {
             Review your items before checking out.
           </p>
         </div>
+
+        {/* Stock Message */}
+        {stockMessage && (
+          <div className="mb-6 rounded-2xl border border-orange-200 bg-orange-50 px-5 py-4">
+            <p className="text-sm font-semibold text-orange-700">
+              ⚠️ {stockMessage}
+            </p>
+          </div>
+        )}
+
+        {/* Live Stock Problems */}
+        {stockChecked && hasStockProblem && (
+          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-5 py-4">
+            <p className="text-sm font-bold text-red-700">
+              ⚠️ Stock availability changed
+            </p>
+
+            <div className="mt-2 space-y-1">
+              {stockErrors.map((error, index) => (
+                <p
+                  key={index}
+                  className="text-sm text-red-600"
+                >
+                  • {error}
+                </p>
+              ))}
+            </div>
+
+            <p className="mt-3 text-xs font-medium text-red-500">
+              Please update your cart before proceeding to checkout.
+            </p>
+          </div>
+        )}
 
         {/* Free Shipping Message */}
         <div className="mb-8 rounded-2xl bg-sage px-5 py-4">
@@ -249,12 +344,22 @@ export default function CartPage() {
             </div>
 
             {/* Checkout */}
-            <Link
-              href="/checkout"
-              className="mt-6 block w-full rounded-full bg-forest px-5 py-4 text-center font-semibold text-white transition hover:opacity-90"
-            >
-              Proceed to Checkout →
-            </Link>
+            {stockChecked && !hasStockProblem ? (
+              <Link
+                href="/checkout"
+                className="mt-6 block w-full rounded-full bg-forest px-5 py-4 text-center font-semibold text-white transition hover:opacity-90"
+              >
+                Proceed to Checkout →
+              </Link>
+            ) : (
+              <button
+                type="button"
+                disabled
+                className="mt-6 block w-full cursor-not-allowed rounded-full bg-slate-300 px-5 py-4 text-center font-semibold text-slate-500"
+              >
+                Update Stock to Continue
+              </button>
+            )}
 
             <p className="mt-4 text-center text-xs text-slate-400">
               Secure checkout • Cash on Delivery available
